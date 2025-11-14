@@ -203,10 +203,10 @@ function buildVendorList() {
 
   console.log('Total items for output:', finalList.length);
 
-  // Write to List (preserve E+ if exists)
+  // Write to List (clear A-E to prevent hanging data from previous runs)
   const shOut = ensureSheet_(ss, SHEET_OUT);
   const lastRow = shOut.getLastRow();
-  if (lastRow > 0) shOut.getRange(1, 1, lastRow, 4).clearContent();
+  if (lastRow > 0) shOut.getRange(1, 1, lastRow, 5).clearContent();
 
   shOut.getRange(1, 1, 1, 4).setValues([['Vendor', 'TTL , USD', 'Source', 'Status']]);
   if (finalList.length) {
@@ -215,7 +215,7 @@ function buildVendorList() {
     shOut.getRange(2, 2, data.length, 1).setNumberFormat('$#,##0.00;($#,##0.00)');
   }
   if (lastRow > finalList.length + 1) {
-    shOut.getRange(finalList.length + 2, 1, lastRow - (finalList.length + 1), 4).clearContent();
+    shOut.getRange(finalList.length + 2, 1, lastRow - (finalList.length + 1), 5).clearContent();
   }
   shOut.autoResizeColumns(1, 4);
 
