@@ -1,0 +1,2 @@
+# Ensure PowerShell scripts use LF line endings and UTF-8 encoding
+*.ps1 text eol=lf
