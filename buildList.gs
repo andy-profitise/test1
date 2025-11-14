@@ -32,17 +32,9 @@ const STATUS_PRIORITY = [
 const STATUS_RANK = STATUS_PRIORITY.reduce((m, s, i) => (m[s] = i, m), {});
 
 /**
- * Menu
+ * NOTE: Menu is defined in BattleStation.gs onOpen() function
+ * to avoid collision with multiple onOpen() declarations
  */
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('Vendor Tools')
-    .addItem('Build List', 'buildVendorList')
-    .addItem('Statuses', 'lookupVendorStatus')
-    .addItem('Process Current Row', 'processCurrentRow')
-    .addItem('Open Gmail Threads', 'openGmailThreadsInTabs')
-    .addToUi();
-}
 
 /**
  * Build unified "List" with:

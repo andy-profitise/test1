@@ -1426,22 +1426,36 @@ function battleStationGoTo() {
 }
 
 /**
- * Add menu to Google Sheets
+ * Add unified menu to Google Sheets
+ * Combines both Battle Station and Vendor Tools functionality
  */
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('⚡ Battle Station')
+
+  ui.createMenu('⚡ Vendor Review')
+    // Build & Setup
+    .addItem('📋 Build List (Hot Zone + Status)', 'buildVendorList')
     .addItem('🔧 Setup Battle Station', 'setupBattleStation')
     .addSeparator()
+
+    // Navigation
     .addItem('⏭️ Next Unreviewed (Smart Skip)', 'battleStationNextUnreviewed')
     .addItem('▶ Next Vendor', 'battleStationNext')
     .addItem('◀ Previous Vendor', 'battleStationPrevious')
-    .addItem('🔄 Refresh', 'battleStationRefresh')
+    .addItem('🔍 Search by Name or Index...', 'battleStationGoTo')
     .addSeparator()
+
+    // Actions
     .addItem('💾 Update monday.com Notes', 'battleStationUpdateMondayNotes')
     .addItem('✓ Mark as Reviewed', 'battleStationMarkReviewed')
-    .addItem('📧 Open Gmail Search', 'battleStationOpenGmail')
+    .addItem('🔄 Refresh Current Vendor', 'battleStationRefresh')
     .addSeparator()
-    .addItem('🔍 Search by Name or Index...', 'battleStationGoTo')
+
+    // Utilities
+    .addItem('📊 Lookup Statuses (Manual)', 'lookupVendorStatus')
+    .addItem('📧 Open Gmail Search', 'battleStationOpenGmail')
+    .addItem('📧 Open Gmail Threads (Multi-tab)', 'openGmailThreadsInTabs')
+    .addItem('⚙️ Process Current Row', 'processCurrentRow')
+
     .addToUi();
 }
