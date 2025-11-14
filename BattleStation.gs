@@ -3,12 +3,14 @@
  *
  * Features:
  * - Navigate through vendors sequentially via menu
+ * - Smart skip: Auto-skip reviewed/dead vendors (with notes)
+ * - Search by vendor name or index
  * - View vendor details, notes, status
  * - See all related emails and monday.com tasks (live search)
  * - Update monday.com notes directly
  * - Mark vendors as reviewed/complete
  *
- * UPDATED: Menu-driven, no checkboxes, live Gmail search
+ * UPDATED: Smart navigation with skip logic and name search
  ************************************************************/
 
 const BS_CFG = {
@@ -67,6 +69,62 @@ function getCurrentVendorIndex_() {
 }
 
 /**
+ * Helper function: Check if a vendor should be skipped
+ * Skip if: Has notes AND (is processed OR status is "Dead")
+ */
+function shouldSkipVendor_(vendorData) {
+  const notes = String(vendorData[BS_CFG.L_NOTES] || '').trim();
+  const status = String(vendorData[BS_CFG.L_STATUS] || '').trim();
+  const processed = vendorData[BS_CFG.L_PROCESSED] || false;
+
+  // Only skip if vendor has notes (so we know why they're being skipped)
+  if (!notes || notes === '') {
+    return false;
+  }
+
+  // Skip if processed or status is "Dead"
+  if (processed || status === 'Dead') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Helper function: Find vendor index by name
+ * Returns the 1-based index (not row number) or null if not found
+ */
+function findVendorIndexByName_(vendorName) {
+  const ss = SpreadsheetApp.getActive();
+  const listSh = ss.getSheetByName(BS_CFG.LIST_SHEET);
+
+  if (!listSh) return null;
+
+  const totalVendors = listSh.getLastRow() - 1;
+  const vendorColumn = listSh.getRange(2, BS_CFG.L_VENDOR + 1, totalVendors, 1).getValues();
+
+  const searchTerm = vendorName.toLowerCase().trim();
+
+  // Try exact match first
+  for (let i = 0; i < vendorColumn.length; i++) {
+    const vendor = String(vendorColumn[i][0] || '').toLowerCase();
+    if (vendor === searchTerm) {
+      return i + 1; // Return 1-based index
+    }
+  }
+
+  // Try partial match (contains)
+  for (let i = 0; i < vendorColumn.length; i++) {
+    const vendor = String(vendorColumn[i][0] || '').toLowerCase();
+    if (vendor.includes(searchTerm) || searchTerm.includes(vendor)) {
+      return i + 1; // Return 1-based index
+    }
+  }
+
+  return null;
+}
+
+/**
  * Create or reset the Battle Station sheet
  */
 function setupBattleStation() {
@@ -89,7 +147,7 @@ function setupBattleStation() {
   // Initialize with first vendor
   loadVendorData(1);
 
-  SpreadsheetApp.getUi().alert('Battle Station initialized!\n\nUse the ⚡ Battle Station menu to navigate:\n- ▶ Next Vendor\n- ◀ Previous Vendor\n- 💾 Update monday.com Notes\n- ✓ Mark as Reviewed');
+  SpreadsheetApp.getUi().alert('Battle Station initialized!\n\nUse the ⚡ Battle Station menu to navigate:\n- ⏭️ Next Unreviewed (Smart Skip) - Auto-skips reviewed/dead vendors with notes\n- ▶ Next Vendor - Standard next\n- 🔍 Search by Name or Index - Find specific vendor\n- 💾 Update monday.com Notes\n- ✓ Mark as Reviewed');
 }
 
 /**
@@ -802,6 +860,74 @@ function battleStationRefresh() {
 }
 
 /**
+ * Navigation: Go to next unreviewed vendor (skips processed/dead with notes)
+ */
+function battleStationNextUnreviewed() {
+  const ss = SpreadsheetApp.getActive();
+  const bsSh = ss.getSheetByName(BS_CFG.BATTLE_SHEET);
+  const listSh = ss.getSheetByName(BS_CFG.LIST_SHEET);
+
+  if (!bsSh || !listSh) {
+    SpreadsheetApp.getUi().alert('Battle Station not found. Run setupBattleStation() first.');
+    return;
+  }
+
+  const currentIndex = getCurrentVendorIndex_();
+
+  Logger.log(`=== NEXT UNREVIEWED NAVIGATION ===`);
+  Logger.log(`Starting from index: ${currentIndex}`);
+
+  if (!currentIndex) {
+    Logger.log('Could not get index, defaulting to 1');
+    loadVendorData(1);
+    return;
+  }
+
+  const totalVendors = listSh.getLastRow() - 1;
+
+  // Check if we're at the end
+  if (currentIndex >= totalVendors) {
+    ss.toast('Already at the last vendor!', '⚠️ End of List', 3);
+    return;
+  }
+
+  // Mark current as reviewed
+  const currentListRow = currentIndex + 1;
+  const currentVendor = listSh.getRange(currentListRow, BS_CFG.L_VENDOR + 1).getValue();
+  listSh.getRange(currentListRow, BS_CFG.L_PROCESSED + 1).setValue(true);
+
+  Logger.log(`Marking vendor ${currentIndex} as reviewed: ${currentVendor}`);
+  ss.toast(`Marked "${currentVendor}" as reviewed`, '▶️ Next Unreviewed', 2);
+
+  // Find next unreviewed vendor
+  let nextIndex = currentIndex + 1;
+  let skippedCount = 0;
+
+  while (nextIndex <= totalVendors) {
+    const nextListRow = nextIndex + 1;
+    const vendorData = listSh.getRange(nextListRow, 1, 1, 8).getValues()[0];
+
+    if (shouldSkipVendor_(vendorData)) {
+      Logger.log(`Skipping vendor ${nextIndex}: ${vendorData[BS_CFG.L_VENDOR]} (processed or dead with notes)`);
+      skippedCount++;
+      nextIndex++;
+    } else {
+      // Found an unreviewed vendor
+      Logger.log(`Found unreviewed vendor at index ${nextIndex}: ${vendorData[BS_CFG.L_VENDOR]}`);
+      if (skippedCount > 0) {
+        ss.toast(`Skipped ${skippedCount} vendor(s)`, 'ℹ️ Skipped', 2);
+      }
+      loadVendorData(nextIndex);
+      return;
+    }
+  }
+
+  // No more unreviewed vendors found
+  ss.toast(`No more unreviewed vendors! (Skipped ${skippedCount})`, '✅ All Done', 5);
+  Logger.log(`Reached end of list. Total skipped: ${skippedCount}`);
+}
+
+/**
  * Update monday.com notes for current vendor from Battle Station notes field
  */
 function battleStationUpdateMondayNotes() {
@@ -1252,7 +1378,7 @@ function battleStationOpenGmail() {
 }
 
 /**
- * Go to a specific vendor by index
+ * Go to a specific vendor by name or index
  */
 function battleStationGoTo() {
   const ss = SpreadsheetApp.getActive();
@@ -1264,16 +1390,37 @@ function battleStationGoTo() {
   const ui = SpreadsheetApp.getUi();
   const response = ui.prompt(
     'Go to Vendor',
-    `Enter vendor index (1-${totalVendors}):`,
+    `Enter vendor name or index (1-${totalVendors}):`,
     ui.ButtonSet.OK_CANCEL
   );
 
   if (response.getSelectedButton() === ui.Button.OK) {
-    const index = parseInt(response.getResponseText());
+    const input = String(response.getResponseText() || '').trim();
+
+    if (!input) {
+      ui.alert('Please enter a vendor name or index.');
+      return;
+    }
+
+    // Try parsing as a number first (index)
+    const index = parseInt(input);
     if (!isNaN(index) && index >= 1 && index <= totalVendors) {
+      Logger.log(`Going to vendor by index: ${index}`);
       loadVendorData(index);
+      return;
+    }
+
+    // Try finding by vendor name
+    Logger.log(`Searching for vendor by name: "${input}"`);
+    const foundIndex = findVendorIndexByName_(input);
+
+    if (foundIndex) {
+      Logger.log(`Found vendor at index: ${foundIndex}`);
+      const vendorName = listSh.getRange(foundIndex + 1, BS_CFG.L_VENDOR + 1).getValue();
+      ss.toast(`Found: ${vendorName}`, '✅ Vendor Found', 2);
+      loadVendorData(foundIndex);
     } else {
-      ui.alert('Invalid index. Please enter a number between 1 and ' + totalVendors);
+      ui.alert(`Could not find vendor matching: "${input}"\n\nTry:\n- Exact or partial vendor name\n- Vendor index (1-${totalVendors})`);
     }
   }
 }
@@ -1286,6 +1433,7 @@ function onOpen() {
   ui.createMenu('⚡ Battle Station')
     .addItem('🔧 Setup Battle Station', 'setupBattleStation')
     .addSeparator()
+    .addItem('⏭️ Next Unreviewed (Smart Skip)', 'battleStationNextUnreviewed')
     .addItem('▶ Next Vendor', 'battleStationNext')
     .addItem('◀ Previous Vendor', 'battleStationPrevious')
     .addItem('🔄 Refresh', 'battleStationRefresh')
@@ -1294,6 +1442,6 @@ function onOpen() {
     .addItem('✓ Mark as Reviewed', 'battleStationMarkReviewed')
     .addItem('📧 Open Gmail Search', 'battleStationOpenGmail')
     .addSeparator()
-    .addItem('🔍 Go to Specific Vendor...', 'battleStationGoTo')
+    .addItem('🔍 Search by Name or Index...', 'battleStationGoTo')
     .addToUi();
 }
