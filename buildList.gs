@@ -724,3 +724,74 @@ function recordSkipReason_({ name, source, reason, detail }) {
     // non-fatal
   }
 }
+
+/**
+ * Open all Gmail thread links from column F in new browser tabs
+ * Useful for quickly opening multiple vendor emails
+ */
+function openGmailThreadsInTabs() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  // Get all data from column F (thread_link)
+  // Assuming your data starts at row 2 (row 1 is headers)
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    SpreadsheetApp.getUi().alert('No thread links found in column F.');
+    return;
+  }
+
+  const threadLinks = sheet.getRange("F2:F" + lastRow).getValues();
+
+  // Filter out empty links
+  const validLinks = threadLinks.filter(row => row[0] && row[0].toString().trim() !== '');
+
+  if (validLinks.length === 0) {
+    SpreadsheetApp.getUi().alert('No valid thread links found in column F.');
+    return;
+  }
+
+  // Create HTML to open multiple tabs
+  let html = '<html><head><title>Opening Gmail Threads</title></head><body>';
+  html += '<p>Opening ' + validLinks.length + ' Gmail threads in new tabs...</p>';
+  html += '<script>';
+
+  // Loop through each URL and open in a new tab
+  validLinks.forEach(function(row) {
+    const url = row[0];
+    html += 'window.open("' + url + '", "_blank");';
+  });
+
+  html += 'google.script.host.close();';
+  html += '</script></body></html>';
+
+  // Display the HTML
+  const htmlOutput = HtmlService.createHtmlOutput(html)
+    .setWidth(400)
+    .setHeight(200);
+  SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'Opening Gmail Threads');
+}
+
+/**
+ * Process the currently selected row
+ * Utility function for custom row processing
+ */
+function processCurrentRow() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const activeRange = sheet.getActiveRange();
+  const row = activeRange.getRow();
+
+  if (row === 1) {
+    SpreadsheetApp.getUi().alert('Please select a data row (not the header row).');
+    return;
+  }
+
+  // Get the entire row data
+  const rowData = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const vendor = rowData[0]; // Column A - Vendor name
+
+  SpreadsheetApp.getUi().alert(
+    'Processing Row ' + row + ':\n\n' +
+    'Vendor: ' + vendor + '\n\n' +
+    'Add custom processing logic to the processCurrentRow() function in buildList.gs'
+  );
+}
