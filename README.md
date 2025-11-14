@@ -6,11 +6,12 @@ This repository contains the Battle Station vendor review dashboard for Google S
 
 ```
 .
-├── BattleStation.gs         # Main Apps Script code
-├── appsscript.json          # Apps Script manifest
-├── .clasp.json.template     # Template for clasp configuration
-├── .gitignore               # Git ignore file
-└── README.md                # This file
+├── BattleStation.gs              # Main Apps Script code
+├── appsscript.json               # Apps Script manifest
+├── update-battle-station.ps1     # Quick update script (git pull + clasp push)
+├── .clasp.json.template          # Template for clasp configuration
+├── .gitignore                    # Git ignore file
+└── README.md                     # This file
 ```
 
 ## 🚀 Setup Instructions
@@ -90,7 +91,20 @@ This opens your Apps Script project in your browser.
 
 ## 🔄 Development Workflow
 
-### Making Changes
+### Quick Update (Recommended for Windows)
+
+Use the helper script to pull from git and push to Google in one command:
+
+```powershell
+./update-battle-station.ps1
+```
+
+This script will:
+1. Pull the latest changes from GitHub
+2. Push them to Google Apps Script
+3. Show you status messages along the way
+
+### Making Changes Manually
 
 1. Edit `BattleStation.gs` locally
 2. Push changes to Google Apps Script:
