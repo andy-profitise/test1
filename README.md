@@ -7,6 +7,7 @@ This repository contains the Battle Station vendor review dashboard for Google S
 ```
 .
 ├── BattleStation.gs              # Main Apps Script code
+├── buildList.gs                  # Vendor list builder with hot zone prioritization
 ├── appsscript.json               # Apps Script manifest
 ├── update-battle-station.bat     # Quick update script for Windows (batch)
 ├── update-battle-station.ps1     # Quick update script for Windows (PowerShell)
@@ -165,6 +166,49 @@ The `.clasp.json` file is gitignored because it contains user-specific configura
 | `clasp logs` | View execution logs |
 | `clasp deployments` | List deployments |
 | `clasp version` | Create a new version |
+
+## 📄 Script Files
+
+### BattleStation.gs
+
+The main vendor review dashboard with:
+- Smart navigation (auto-skip reviewed/dead vendors with notes)
+- Search by vendor name or index
+- Live Gmail and monday.com integration
+- Interactive vendor review workflow
+
+**Key Features:**
+- `⏭️ Next Unreviewed` - Skip to next vendor needing review
+- `🔍 Search by Name` - Find vendors by partial name match
+- `💾 Update monday.com Notes` - Sync notes back to monday.com
+- Gmail thread display with color coding (waiting, snoozed, active)
+- monday.com tasks integration
+
+### buildList.gs
+
+Vendor list builder with intelligent prioritization:
+
+**HOT ZONE** (Top Priority):
+- Vendors with emails in `label:00.received` from last 7 days
+- Auto-detected from Gmail and moved to top of list
+- Ensures active conversations are reviewed first
+
+**NORMAL ZONE**:
+- Sorted by TTL USD (descending)
+- Then by type (Buyers > Affiliates)
+- Then alphabetically
+
+**Features:**
+- Auto-status lookup from monday.com
+- Blacklist support (Settings sheet, column E)
+- Deduplication across metric and monday.com sheets
+- Comprehensive logging and diagnostics
+
+**Output Columns:**
+1. Vendor (name)
+2. TTL , USD (total value)
+3. Source (which sheet/metric)
+4. Status (from monday.com)
 
 ## 📋 OAuth Scopes
 
