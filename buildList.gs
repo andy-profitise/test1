@@ -253,12 +253,17 @@ function buildVendorList() {
 /**
  * Search Gmail for threads with label:00.received from last 7 days
  * Return a Set of vendor names (lowercased) that have recent activity
+ *
+ * Detection methods (in priority order):
+ * 1. Gmail label "zzzVendors/<vendor_name>" (most accurate)
+ * 2. Exact vendor name match in subject/sender/recipient
+ * 3. Token-based fuzzy matching (fallback)
  */
 function getHotVendorsFromGmail_(allVendors) {
   const hotSet = new Set();
 
   try {
-    // Search for emails with label "00.received" from last 168 hours (7 days)
+    // Search for emails with label "00.received" from last 7 days
     const threads = GmailApp.search('label:00.received newer_than:7d', 0, 100);
 
     console.log(`Found ${threads.length} hot threads`);
@@ -266,19 +271,67 @@ function getHotVendorsFromGmail_(allVendors) {
     if (threads.length === 0) return hotSet;
 
     // Build vendor name lookup for fast matching
-    const vendorNames = allVendors.map(v => ({
-      name: v.name,
-      nameLower: v.name.toLowerCase(),
-      // Also create searchable tokens (words) from vendor name
-      tokens: v.name.toLowerCase().split(/\s+/).filter(t => t.length > 2)
-    }));
+    const vendorMap = new Map();
+    const vendorNames = allVendors.map(v => {
+      const nameLower = v.name.toLowerCase();
+      vendorMap.set(nameLower, v.name);
+      return {
+        name: v.name,
+        nameLower: nameLower,
+        // Also create searchable tokens (words) from vendor name
+        tokens: nameLower.split(/\s+/).filter(t => t.length > 2)
+      };
+    });
+
+    let labelMatches = 0;
+    let exactMatches = 0;
+    let tokenMatches = 0;
 
     for (const thread of threads) {
       try {
+        let matched = false;
+
+        // METHOD 1 (BEST): Check for zzzVendors/<vendor_name> label
+        const labels = thread.getLabels();
+        for (const label of labels) {
+          const labelName = label.getName();
+
+          // Check if this is a vendor label (zzzVendors/<vendor_name>)
+          if (labelName.startsWith('zzzVendors/')) {
+            const vendorNameFromLabel = labelName.substring('zzzVendors/'.length).toLowerCase();
+
+            // Try exact match first
+            if (vendorMap.has(vendorNameFromLabel)) {
+              hotSet.add(vendorNameFromLabel);
+              labelMatches++;
+              console.log(`HOT: ${vendorMap.get(vendorNameFromLabel)} (label: ${labelName})`);
+              matched = true;
+              break;
+            }
+
+            // Try partial match (label contains vendor name or vice versa)
+            for (const vendor of vendorNames) {
+              if (vendorNameFromLabel.includes(vendor.nameLower) ||
+                  vendor.nameLower.includes(vendorNameFromLabel)) {
+                hotSet.add(vendor.nameLower);
+                labelMatches++;
+                console.log(`HOT: ${vendor.name} (label partial match: ${labelName})`);
+                matched = true;
+                break;
+              }
+            }
+
+            if (matched) break;
+          }
+        }
+
+        // If matched by label, skip other methods
+        if (matched) continue;
+
+        // METHOD 2: Exact name match in subject/sender/recipient
         const subject = thread.getFirstMessageSubject().toLowerCase();
         const messages = thread.getMessages();
 
-        // Get sender/recipient info from first message
         let emailText = subject;
         if (messages.length > 0) {
           const firstMsg = messages[0];
@@ -286,21 +339,29 @@ function getHotVendorsFromGmail_(allVendors) {
           emailText += ' ' + firstMsg.getTo().toLowerCase();
         }
 
-        // Check if any vendor name appears in the email
         for (const vendor of vendorNames) {
-          // Try exact match first
+          // Try exact match
           if (emailText.includes(vendor.nameLower)) {
             hotSet.add(vendor.nameLower);
+            exactMatches++;
             console.log(`HOT: ${vendor.name} (exact match in: "${subject.substring(0, 50)}...")`);
-            continue;
+            matched = true;
+            break;
           }
+        }
 
-          // Try token-based matching (at least 2 significant words match)
+        // If matched by exact text, skip token matching
+        if (matched) continue;
+
+        // METHOD 3 (FALLBACK): Token-based matching (at least 2 significant words match)
+        for (const vendor of vendorNames) {
           if (vendor.tokens.length >= 2) {
             const matchCount = vendor.tokens.filter(token => emailText.includes(token)).length;
             if (matchCount >= Math.min(2, vendor.tokens.length)) {
               hotSet.add(vendor.nameLower);
+              tokenMatches++;
               console.log(`HOT: ${vendor.name} (token match: ${matchCount} tokens in: "${subject.substring(0, 50)}...")`);
+              break;
             }
           }
         }
@@ -308,6 +369,8 @@ function getHotVendorsFromGmail_(allVendors) {
         console.log(`Error processing thread: ${e.message}`);
       }
     }
+
+    console.log(`Hot vendor detection summary: ${labelMatches} label matches, ${exactMatches} exact matches, ${tokenMatches} token matches`);
 
   } catch (e) {
     console.log(`Error searching Gmail: ${e.message}`);

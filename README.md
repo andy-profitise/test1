@@ -190,7 +190,10 @@ Vendor list builder with intelligent prioritization:
 
 **HOT ZONE** (Top Priority):
 - Vendors with emails in `label:00.received` from last 7 days
-- Auto-detected from Gmail and moved to top of list
+- Auto-detected from Gmail using three methods:
+  1. **Gmail labels** `zzzVendors/<vendor_name>` (most accurate)
+  2. Exact vendor name in subject/sender/recipient
+  3. Token-based fuzzy matching (fallback)
 - Ensures active conversations are reviewed first
 
 **NORMAL ZONE**:
