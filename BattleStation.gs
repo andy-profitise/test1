@@ -1456,6 +1456,14 @@ function onOpen() {
     .addItem('📧 Open Gmail Search', 'battleStationOpenGmail')
     .addItem('📧 Open Gmail Threads (Multi-tab)', 'openGmailThreadsInTabs')
     .addItem('⚙️ Process Current Row', 'processCurrentRow')
+    .addSeparator()
+
+    // Label Audit & Repair
+    .addItem('🔍 Audit Important Labels', 'auditImportantLabels')
+    .addItem('🔍 Audit Single Label...', 'auditSingleLabel')
+    .addItem('🔧 Repair Label Discrepancies', 'repairLabelDiscrepancies')
+    .addItem('🔧 Repair Specific Label...', 'repairSpecificLabel')
+    .addItem('⚙️ Show Important Labels Config', 'showImportantLabelsConfig')
 
     .addToUi();
 }
